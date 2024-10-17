@@ -1,0 +1,1 @@
+This JavaScript function automates the process of clicking on each row's "three dots" menu and selecting the "Download" option. It triggers the downloads with a slight delay between each action to ensure the website has time to respond. The delay can be adjusted depending on the speed of the internet or machine to avoid missed downloads.
