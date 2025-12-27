@@ -20,7 +20,7 @@ from typing import Iterable, List, Tuple
 
 
 RNG = random.SystemRandom()
-CHUNK_SIZE = 100
+DEFAULT_CHUNK_SIZE = 100
 
 
 @dataclass
@@ -149,7 +149,9 @@ def build_payload(targets: List[SequenceEntry], chains: List[SequenceEntry]) -> 
     return payload
 
 
-def chunk_payload(payload: list[dict], chunk_size: int = CHUNK_SIZE) -> Iterable[Tuple[list[dict], int, int]]:
+def chunk_payload(
+    payload: list[dict], chunk_size: int = DEFAULT_CHUNK_SIZE
+) -> Iterable[Tuple[list[dict], int, int]]:
     for start in range(0, len(payload), chunk_size):
         chunk = payload[start : start + chunk_size]
         yield chunk, start + 1, start + len(chunk)
@@ -164,7 +166,25 @@ def prompt_output_destination() -> Path | None:
     return Path(destination).expanduser()
 
 
-def emit_payload(payload: list[dict], destination: Path | None) -> None:
+def prompt_chunk_size(default: int = DEFAULT_CHUNK_SIZE) -> int:
+    while True:
+        raw_value = safe_input(
+            f"How many entries per JSON file? (Press Enter for {default}): "
+        ).strip()
+        if not raw_value:
+            return default
+        try:
+            value = int(raw_value)
+        except ValueError:
+            print("Please provide a whole number (e.g., 30 or 50).")
+            continue
+        if value <= 0:
+            print("Chunk size must be greater than zero.")
+            continue
+        return value
+
+
+def emit_payload(payload: list[dict], destination: Path | None, chunk_size: int) -> None:
     if not payload:
         print("No entries to write.")
         return
@@ -174,12 +194,12 @@ def emit_payload(payload: list[dict], destination: Path | None) -> None:
         base_dir.mkdir(parents=True, exist_ok=True)
         stem = destination.stem or "predictions"
         suffix = destination.suffix or ".json"
-        for chunk, start_idx, end_idx in chunk_payload(payload):
+        for chunk, start_idx, end_idx in chunk_payload(payload, chunk_size):
             chunk_path = base_dir / f"{stem}_{start_idx}-{end_idx}{suffix}"
             chunk_path.write_text(json.dumps(chunk, indent=2), encoding="utf-8")
             print(f"Wrote entries {start_idx}-{end_idx} to {chunk_path}")
     else:
-        for chunk, start_idx, end_idx in chunk_payload(payload):
+        for chunk, start_idx, end_idx in chunk_payload(payload, chunk_size):
             print(f"\n=== Entries {start_idx}-{end_idx} ===")
             print(json.dumps(chunk, indent=2))
 
@@ -195,7 +215,8 @@ def main() -> None:
 
     payload = build_payload(targets, chains)
     destination = prompt_output_destination()
-    emit_payload(payload, destination)
+    chunk_size = prompt_chunk_size()
+    emit_payload(payload, destination, chunk_size)
 
 
 if __name__ == "__main__":
