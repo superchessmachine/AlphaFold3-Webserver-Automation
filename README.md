@@ -21,6 +21,14 @@ Two lightweight ways to trigger AlphaFold3 downloads automatically. The browser-
 3. Log in if prompted and navigate to the predictions table.
 4. Press Enter when prompted to start downloads. Use `--auto-start` to skip the prompt or `--headless` to hide the browser.
 
+## JSON generation helper
+Use `jsongeneration/generate_screening_json.py` to build AlphaFold-ready JSON payloads that pair your fixed screening chains with every target sequence in a CSV.
+
+1. Run the script with Python 3.9+: `python jsongeneration/generate_screening_json.py`.
+2. Paste each screening chain sequence when prompted. Provide an optional label (default `Chain1`, `Chain2`, ...). Press Enter on an empty prompt to finish entering chains.
+3. Provide the CSV path plus the column headers that contain the target names and sequences. The script validates headers and skips rows with empty sequences.
+4. Choose whether to print the JSON to stdout (press Enter) or save it to a file by entering a destination path. Every JSON entry uses a random 9-digit model seed and is named `<csv name>_<chain name>`.
+
 ## Notes
 - Both methods operate only on the currently visible prediction table and click the existing **Download** action—no extra steps are performed.
 - If downloads stall on slower connections, increase the delay (e.g., `750`–`1000` ms).
