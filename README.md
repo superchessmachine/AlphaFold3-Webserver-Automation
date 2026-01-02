@@ -4,6 +4,7 @@ The pieces in this repo are the battle-tested workflow we rely on today: paste-i
 
 ## Repository map
 - `manual_console_scripts/startDraftRuns.js` – submits saved drafts so you can chew through daily quotas hands-free.
+- `manual_console_scripts/startDraftRunsExperimental.js` – experimental variant that only counts confirmed submissions toward the requested total.
 - `manual_console_scripts/downloadPredictions.js` – clicks **Download** for every visible prediction row.
 - `jsongeneration/generate_screening_json_v1.py` – interactive helper that builds AlphaFold-ready JSON (and can auto-split into multiple files).
 - `node_automation.js` – Puppeteer runner that opens the prediction table and downloads rows for you; use only if you are exploring experimental automation.
@@ -37,6 +38,9 @@ These scripts are what we use daily and they are exercised regularly. They work 
 3. Call `startDraftRuns()` (optionally pass the number of drafts to start). If you omit the count, a prompt asks how many runs to submit from the top.
 4. The helper opens each row’s menu, walks through **Open draft → Continue and preview job → Confirm and submit job**, and tracks jobs it already started this session so you can rerun it to keep chewing through the queue every day.
 5. Adjust the delay options in the `options` object if your connection is slow (e.g., higher `rowDelayMs` to respect rate limits).
+
+#### `manual_console_scripts/startDraftRunsExperimental.js`
+This variant is opt-in for when you want to make sure “10” means *ten actual submissions*. It uses the same flow as the proven helper but keeps looping until it observes the requested number of successful starts (it looks for success/error snackbars instead of assuming the click worked). If AlphaFold reports a quota/limit error the script stops early so you can decide what to do next.
 
 #### `manual_console_scripts/downloadPredictions.js`
 1. Stay on the AlphaFold predictions table with every job you want already visible (zoom out if needed).
