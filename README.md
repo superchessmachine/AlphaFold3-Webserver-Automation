@@ -1,62 +1,61 @@
-# AlphaFold3 Webserver Automation Suite
+# AlphaFold3 Webserver Automation
 
-The pieces in this repo are the battle-tested workflow we rely on today: paste-in browser helpers (`manual_console_scripts/`) and the screening JSON generator (`jsongeneration/`). They cover everything from building a screen, to generating upload-ready JSON, to kicking off as many predictions as your daily quota allows. `node_automation.js` is available too, but it is still experimental—stick to the manual scripts if you need something that already works end-to-end.
+Tools for automating AlphaFold3 webserver tasks: browser console scripts (`manual_console_scripts/`) and a JSON generator (`jsongeneration/`) for building screens and running predictions. There's also `node_automation.js` for Puppeteer-based automation, but it's experimental—use the console scripts for reliable results.
 
-## Repository map
-- `manual_console_scripts/startDraftRuns.js` – submits saved drafts so you can chew through daily quotas hands-free.
-- `manual_console_scripts/startDraftRunsExperimental.js` – experimental variant that only counts confirmed submissions toward the requested total.
-- `manual_console_scripts/downloadPredictions.js` – clicks **Download** for every visible prediction row.
-- `jsongeneration/generate_screening_json_v1.py` – interactive helper that builds AlphaFold-ready JSON (and can auto-split into multiple files).
-- `node_automation.js` – Puppeteer runner that opens the prediction table and downloads rows for you; use only if you are exploring experimental automation.
+## What's inside
+- `manual_console_scripts/startDraftRuns.js` – submits saved drafts automatically
+- `manual_console_scripts/startDraftRunsExperimental.js` – same but waits for confirmation before counting submissions
+- `manual_console_scripts/downloadPredictions.js` – downloads all visible predictions
+- `jsongeneration/generate_screening_json_v1.py` – generates AlphaFold JSON files from your CSV
+- `node_automation.js` – Puppeteer automation (experimental)
 
-## Typical workflow
-1. Generate JSON for your screen (`jsongeneration/`).
-2. Upload the batches to AlphaFold.
-3. Use the manual console helpers to start new predictions each day and download the results.
+## How to use
+1. Generate JSON files from your CSV
+2. Upload to AlphaFold
+3. Run console scripts to start predictions and download results
 
-### 1. Generate screening JSON
-Use Python 3.9+ to run the helper:
+### 1. Generate JSON files
 
 ```bash
 python jsongeneration/generate_screening_json_v1.py
 ```
 
-The script walks you through:
-1. Pasting one or more screening chains (it validates that at least one is provided and auto-names them `Chain1`, `Chain2`, ... if you skip the label).
-2. Pointing at your CSV plus the header names that hold the target identifiers and sequences. Empty sequence rows are skipped automatically.
-3. Picking where the output should go (leave blank to print to stdout, or give a file path to create JSON files).
-4. Choosing how many entries should live in each JSON file. Press Enter to keep the proven `100`-entry default, or type a different number (for example `30`) if you want smaller batches for the web uploader.
+The script prompts you for:
+1. Screening chains (auto-named `Chain1`, `Chain2`, etc. if you skip labels)
+2. Your CSV path and column names for target IDs and sequences
+3. Output path (leave blank for stdout)
+4. Entries per file (default is 100, or use smaller numbers like 30 for easier uploads)
 
-Each entry gets a unique nine-digit model seed and is named `<target>_<screeningChain>`, which keeps things predictable once you start the jobs.
+Each entry gets a unique seed and is named `<target>_<screeningChain>`.
 
-### 2. Run jobs with the manual console scripts (recommended path)
-These scripts are what we use daily and they are exercised regularly. They work entirely inside the AlphaFold web UI—no install required beyond your browser.
+### 2. Run console scripts (recommended)
+These scripts run directly in your browser console—no install needed.
 
 #### `manual_console_scripts/startDraftRuns.js`
-1. Open the AlphaFold page that lists your drafts/predictions and zoom out so the rows you care about are visible.
-2. Open DevTools → Console, paste the entire file, and press Enter.
-3. Call `startDraftRuns()` (optionally pass the number of drafts to start). If you omit the count, a prompt asks how many runs to submit from the top.
-4. The helper opens each row’s menu, walks through **Open draft → Continue and preview job → Confirm and submit job**, and tracks jobs it already started this session so you can rerun it to keep chewing through the queue every day.
-5. Adjust the delay options in the `options` object if your connection is slow (e.g., higher `rowDelayMs` to respect rate limits).
+1. Open AlphaFold and zoom out to see all drafts you want to submit
+2. Open DevTools → Console, paste the file, press Enter
+3. Call `startDraftRuns()` with optional count (prompts if you don't specify)
+4. Script clicks through **Open draft → Continue and preview job → Confirm and submit job** for each row
+5. Increase delays in `options` object if needed for slow connections
 
 #### `manual_console_scripts/startDraftRunsExperimental.js`
-This variant is opt-in for when you want to make sure “10” means *ten actual submissions*. It uses the same flow as the proven helper but keeps looping until it observes the requested number of successful starts (it looks for success/error snackbars instead of assuming the click worked). If AlphaFold reports a quota/limit error the script stops early so you can decide what to do next.
+Same as above but waits for success/error messages before counting submissions. Stops if AlphaFold reports quota errors.
 
 #### `manual_console_scripts/downloadPredictions.js`
-1. Stay on the AlphaFold predictions table with every job you want already visible (zoom out if needed).
-2. Open DevTools → Console, paste the script, and press Enter.
-3. Optionally call `downloadPredictions(delayMs)` with a custom delay (defaults to `500` ms between rows) if some downloads are skipped.
-4. The helper opens each three-dot menu and clicks **Download** so you can grab everything that finished in one pass.
+1. View all predictions you want to download (zoom out if needed)
+2. Open DevTools → Console, paste the script, press Enter
+3. Call `downloadPredictions(delayMs)` (default 500ms)
+4. Script clicks **Download** for each visible row
 
-### 3. Experimental Node.js automation
-`node_automation.js` uses Puppeteer to click through the prediction table outside the browser console flow. It is still experimental and not part of the proven daily runbook yet—expect to debug it yourself.
+### 3. Node.js automation (experimental)
+Puppeteer-based automation. Still in testing—expect bugs.
 
 Usage (Node.js v18+):
-1. Install dependencies once: `npm install puppeteer`.
-2. Run `node node_automation.js --url "https://alphafold3.example.com/predictions" --delay 500`.
-3. Log in manually if prompted, then press Enter when ready. `--auto-start` skips the Enter prompt, and `--headless` hides Chrome.
+1. `npm install puppeteer`
+2. `node node_automation.js --url "https://alphafold3.example.com/predictions" --delay 500`
+3. Log in if prompted, press Enter when ready (or use `--auto-start` to skip, `--headless` to hide browser)
 
 ## Notes
-- All helpers operate only on the rows currently visible in the AlphaFold UI. Make sure you scroll/zoom so everything you want to touch is on screen.
-- If the UI feels sluggish, increase the delays in the scripts (750–1000 ms usually works well on slower machines).
-- The JSON generator now prompts for the chunk size after you pick an output path—press Enter to keep the 100-entry default, or type any positive integer to split into smaller files that upload faster.
+- Scripts only work on visible rows—zoom out to see everything you want to process
+- Increase delays (750-1000ms) if you have a slow connection
+- JSON generator defaults to 100 entries per file, adjust as needed
