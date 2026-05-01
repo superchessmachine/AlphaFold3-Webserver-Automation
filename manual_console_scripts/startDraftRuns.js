@@ -6,12 +6,16 @@ async function startDraftRuns(desiredRuns, options = {}) {
         rowDelayMs: 1200,
         menuDelayMs: 400,
         dialogDelayMs: 600,
+        pageDelayMs: 1200,
         overlayTimeoutMs: 10000,
         overlayPollMs: 120
     };
+
     const config = { ...defaultOptions, ...options };
+
     const normalize = (text = '') => text.replace(/\s+/g, ' ').trim().toLowerCase();
     const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
     const labelOpenDraft = 'Open draft';
     const labelContinue = 'Continue and preview job';
     const labelConfirm = 'Confirm and submit job';
@@ -21,22 +25,15 @@ async function startDraftRuns(desiredRuns, options = {}) {
         const response = prompt('How many drafts should be started from the top?', '1');
         runLimit = Number(response);
     }
+
     if (!Number.isFinite(runLimit) || runLimit <= 0) {
         console.log('No runs requested. Aborting.');
         return;
     }
 
-    const rows = Array.from(document.querySelectorAll('tr.mat-mdc-row'));
-    if (rows.length === 0) {
-        console.log('No prediction rows found on the page.');
-        return;
-    }
-
     const initializeGlobalNameSet = () => {
         const existing = window.__afStartedPredictions;
-        if (existing instanceof Set) {
-            return existing;
-        }
+        if (existing instanceof Set) return existing;
         const hydrated = Array.isArray(existing) ? new Set(existing) : new Set();
         window.__afStartedPredictions = hydrated;
         return hydrated;
@@ -47,59 +44,139 @@ async function startDraftRuns(desiredRuns, options = {}) {
 
     const waitForElement = (resolver) => new Promise((resolve, reject) => {
         const start = performance.now();
+
         const lookup = () => {
-            const element = typeof resolver === 'string' ? document.querySelector(resolver) : resolver();
+            const element = typeof resolver === 'string'
+                ? document.querySelector(resolver)
+                : resolver();
+
             if (element) {
                 resolve(element);
                 return;
             }
+
             if (performance.now() - start > config.overlayTimeoutMs) {
                 reject(new Error('Timed out waiting for element.'));
                 return;
             }
+
             setTimeout(lookup, config.overlayPollMs);
         };
+
         lookup();
     });
 
+    const getRows = () => Array.from(document.querySelectorAll('tr.mat-mdc-row'));
+
     const findMenuButtonByLabel = (label) => {
         const target = normalize(label);
+
         const menuButtons = Array.from(document.querySelectorAll('button.mat-mdc-menu-item'));
         const buttonMatch = menuButtons.find((btn) => normalize(btn.textContent) === target);
-        if (buttonMatch) {
-            return buttonMatch;
-        }
+        if (buttonMatch) return buttonMatch;
+
         const spans = Array.from(document.querySelectorAll('span.mat-mdc-menu-item-text'));
         const spanMatch = spans.find((span) => normalize(span.textContent) === target);
+
         return spanMatch ? spanMatch.closest('button') ?? spanMatch : null;
     };
 
     const findButtonByLabel = (label) => {
         const target = normalize(label);
+
         return Array.from(document.querySelectorAll('button')).find(
             (btn) => normalize(btn.textContent) === target && !btn.disabled
         );
     };
 
-    let startedRuns = 0;
-    for (let index = 0; index < rows.length && startedRuns < runLimit; index += 1) {
-        const row = rows[index];
+    const closeOpenOverlays = async () => {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        await wait(200);
+    };
+
+    const setPageSizeTo100 = async () => {
+        const paginator = document.querySelector('mat-paginator');
+        if (!paginator) {
+            console.log('Paginator not found. Staying on current page size.');
+            return false;
+        }
+
+        const valueText = normalize(paginator.textContent);
+        if (valueText.includes('100')) {
+            return true;
+        }
+
+        const selectTrigger =
+            paginator.querySelector('.mat-mdc-select-trigger') ||
+            paginator.querySelector('mat-select') ||
+            paginator.querySelector('[role="combobox"]');
+
+        if (!selectTrigger) {
+            console.log('Page-size selector not found.');
+            return false;
+        }
+
+        console.log('Changing rows per page to 100...');
+        selectTrigger.click();
+        await wait(config.menuDelayMs);
+
+        const option100 = Array.from(document.querySelectorAll('mat-option, .mat-mdc-option'))
+            .find((option) => normalize(option.textContent) === '100');
+
+        if (!option100) {
+            console.log('Could not find the 100 rows-per-page option.');
+            await closeOpenOverlays();
+            return false;
+        }
+
+        option100.click();
+        await wait(config.pageDelayMs);
+        return true;
+    };
+
+    const clickNextPage = async () => {
+        const nextButton = document.querySelector('button.mat-mdc-paginator-navigation-next');
+
+        if (!nextButton) {
+            console.log('Next-page button not found.');
+            return false;
+        }
+
+        const disabled =
+            nextButton.disabled ||
+            nextButton.getAttribute('aria-disabled') === 'true' ||
+            nextButton.classList.contains('mat-mdc-button-disabled') ||
+            nextButton.classList.contains('mat-mdc-button-disabled-interactive');
+
+        if (disabled) {
+            console.log('No next page available.');
+            return false;
+        }
+
+        console.log('Moving to next page...');
+        nextButton.click();
+        await wait(config.pageDelayMs);
+        return true;
+    };
+
+    const submitDraftFromRow = async (row, rowIndexOnPage) => {
         const nameCell = row.querySelector('.cdk-column-name, .mat-column-name');
-        const jobName = nameCell ? nameCell.textContent.trim() : `Row ${index + 1}`;
+        const jobName = nameCell ? nameCell.textContent.trim() : `Page row ${rowIndexOnPage + 1}`;
 
         if (!jobName) {
-            console.log(`Skipping row ${index + 1}: no job name.`);
-            continue;
+            console.log(`Skipping row ${rowIndexOnPage + 1}: no job name.`);
+            return false;
         }
+
         if (startedNames.has(jobName)) {
             console.log(`Skipping ${jobName} because it was already started earlier.`);
-            continue;
+            return false;
         }
 
         const menuButton = row.querySelector('button.mat-mdc-menu-trigger');
         if (!menuButton) {
             console.log(`Skipping ${jobName}: menu trigger not found.`);
-            continue;
+            return false;
         }
 
         console.log(`Opening draft menu for ${jobName}...`);
@@ -109,7 +186,8 @@ async function startDraftRuns(desiredRuns, options = {}) {
         const openDraftButton = findMenuButtonByLabel(labelOpenDraft);
         if (!openDraftButton) {
             console.log(`Open draft action not found for ${jobName}.`);
-            continue;
+            await closeOpenOverlays();
+            return false;
         }
 
         openDraftButton.click();
@@ -123,7 +201,8 @@ async function startDraftRuns(desiredRuns, options = {}) {
             await wait(config.dialogDelayMs);
         } catch (error) {
             console.log(`Failed to click "${labelContinue}" for ${jobName}: ${error.message}`);
-            continue;
+            await closeOpenOverlays();
+            return false;
         }
 
         try {
@@ -131,22 +210,66 @@ async function startDraftRuns(desiredRuns, options = {}) {
                 () => document.querySelector('button.confirm') || findButtonByLabel(labelConfirm)
             );
             confirmButton.click();
-            startedRuns += 1;
+
             startedNames.add(jobName);
             startedThisRun.push(jobName);
-            console.log(`Submitted ${jobName} (${startedRuns}/${runLimit}).`);
+
+            console.log(`Submitted ${jobName} (${startedThisRun.length}/${runLimit}).`);
+            await wait(config.rowDelayMs);
+
+            return true;
         } catch (error) {
             console.log(`Failed to click "${labelConfirm}" for ${jobName}: ${error.message}`);
-            continue;
+            await closeOpenOverlays();
+            return false;
+        }
+    };
+
+    let pageSizeExpanded = false;
+    let keepGoing = true;
+
+    while (startedThisRun.length < runLimit && keepGoing) {
+        let rows = getRows();
+
+        if (rows.length === 0) {
+            console.log('No prediction rows found on the page.');
+            break;
         }
 
-        await wait(config.rowDelayMs);
+        let submittedOnThisPage = 0;
+
+        for (let index = 0; index < rows.length && startedThisRun.length < runLimit; index += 1) {
+            const didSubmit = await submitDraftFromRow(rows[index], index);
+            if (didSubmit) submittedOnThisPage += 1;
+        }
+
+        if (startedThisRun.length >= runLimit) break;
+
+        if (!pageSizeExpanded) {
+            pageSizeExpanded = true;
+            const changed = await setPageSizeTo100();
+
+            if (changed) {
+                rows = getRows();
+                continue;
+            }
+        }
+
+        const movedNext = await clickNextPage();
+
+        if (!movedNext) {
+            keepGoing = false;
+        }
     }
 
     if (startedThisRun.length === 0) {
         console.log('No jobs were submitted during this run.');
     } else {
         console.log(`Started ${startedThisRun.length} jobs: ${startedThisRun.join(', ')}`);
+    }
+
+    if (startedThisRun.length < runLimit) {
+        console.log(`Requested ${runLimit} jobs, but only found/submitted ${startedThisRun.length}.`);
     }
 }
 
