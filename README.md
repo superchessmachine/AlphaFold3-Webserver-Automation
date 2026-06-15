@@ -5,7 +5,7 @@ Tools for automating AlphaFold3 webserver tasks: browser console scripts (`manua
 ## What's inside
 - `manual_console_scripts/startDraftRuns.js` – submits saved drafts automatically
 - `manual_console_scripts/startDraftRunsExperimental.js` – same but waits for confirmation before counting submissions
-- `manual_console_scripts/downloadPredictions.js` – downloads all visible predictions
+- `manual_console_scripts/downloadPredictions.js` – asks how many to download, then downloads from the top, scrolling to reveal more rows when it can't see enough (pass `0` for all)
 - `jsongeneration/generate_screening_json_v1.py` – generates AlphaFold JSON files from your CSV
 - `node_automation.js` – Puppeteer automation (experimental)
 
@@ -42,10 +42,10 @@ These scripts run directly in your browser console—no install needed.
 Same as above but waits for success/error messages before counting submissions. Stops if AlphaFold reports quota errors.
 
 #### `manual_console_scripts/downloadPredictions.js`
-1. View all predictions you want to download (zoom out if needed)
+1. Open the predictions table (no need to zoom out—it scrolls for you)
 2. Open DevTools → Console, paste the script, press Enter
-3. Call `downloadPredictions(delayMs)` (default 500ms)
-4. Script clicks **Download** for each visible row
+3. A prompt asks how many to download from the top (pass `0` for all). Or call `downloadPredictions(count, { delayMs })` to skip the prompt and tune the per-row delay (default 500ms)
+4. Script clicks **Download** and—like the run scripts—scrolls to reveal more rows when it can't see enough, remembering what it grabbed so reruns pull the next batch
 
 ### 3. Node.js automation (experimental)
 Puppeteer-based automation. Still in testing—expect bugs.
@@ -53,9 +53,9 @@ Puppeteer-based automation. Still in testing—expect bugs.
 Usage (Node.js v18+):
 1. `npm install puppeteer`
 2. `node node_automation.js --url "https://alphafold3.example.com/predictions" --delay 500`
-3. Log in if prompted, press Enter when ready (or use `--auto-start` to skip, `--headless` to hide browser)
+3. Log in if prompted. It asks how many to download (or pass `--count 25`; `--count 0` means all) and scrolls to reveal more rows. Use `--auto-start` to skip the prompt (defaults to all), `--headless` to hide the browser
 
 ## Notes
-- Scripts only work on visible rows—zoom out to see everything you want to process
+- `downloadPredictions.js` scrolls to reveal more rows on its own; the start-draft scripts still work best with rows already on screen
 - Increase delays (750-1000ms) if you have a slow connection
 - JSON generator defaults to 100 entries per file, adjust as needed
