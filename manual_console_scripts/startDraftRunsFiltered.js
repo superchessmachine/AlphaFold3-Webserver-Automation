@@ -1,7 +1,12 @@
-// Browser-console helper for opening saved drafts and submitting jobs.
-// Usage: paste into the AlphaFold page DevTools console, then call
-// startDraftRuns(desiredRunCount?). If no count is provided a prompt will ask.
-async function startDraftRuns(desiredRuns, options = {}) {
+// Browser-console helper for opening saved drafts and submitting jobs, with a
+// title search filter. Paste into the AlphaFold page DevTools console, then call
+// startDraftRunsFiltered(desiredRunCount?, searchTerm?). If a value is missing
+// a prompt will ask: first how many to run, then an optional search term that a
+// draft's title must contain for it to be run (leave blank to run any).
+//
+// Before running it forces the status-filter chips to show ONLY "Saved draft"
+// so it submits real drafts instead of paging through completed/example/etc.
+async function startDraftRunsFiltered(desiredRuns, searchTerm, options = {}) {
     const defaultOptions = {
         rowDelayMs: 1200,
         menuDelayMs: 400,
@@ -29,6 +34,15 @@ async function startDraftRuns(desiredRuns, options = {}) {
     if (!Number.isFinite(runLimit) || runLimit <= 0) {
         console.log('No runs requested. Aborting.');
         return;
+    }
+
+    if (searchTerm === undefined || searchTerm === null) {
+        searchTerm = prompt('Only run drafts whose title contains… (leave blank to run any)', '') || '';
+    }
+    const searchNeedle = normalize(searchTerm);
+    const matchesSearch = (name) => !searchNeedle || normalize(name).includes(searchNeedle);
+    if (searchNeedle) {
+        console.log(`Only running drafts whose title contains "${searchTerm.trim()}".`);
     }
 
     const initializeGlobalNameSet = () => {
@@ -185,6 +199,10 @@ async function startDraftRuns(desiredRuns, options = {}) {
             return false;
         }
 
+        if (!matchesSearch(jobName)) {
+            return false;
+        }
+
         if (startedNames.has(jobName)) {
             console.log(`Skipping ${jobName} because it was already started earlier.`);
             return false;
@@ -292,4 +310,4 @@ async function startDraftRuns(desiredRuns, options = {}) {
     }
 }
 
-startDraftRuns();
+startDraftRunsFiltered();

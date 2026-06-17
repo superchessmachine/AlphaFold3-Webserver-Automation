@@ -3,7 +3,8 @@
 Tools for automating AlphaFold3 webserver tasks: browser console scripts (`manual_console_scripts/`) and a JSON generator (`jsongeneration/`) for building screens and running predictions. There's also `node_automation.js` for Puppeteer-based automation, but it's experimental—use the console scripts for reliable results.
 
 ## What's inside
-- `manual_console_scripts/startDraftRuns.js` – submits saved drafts automatically
+- `manual_console_scripts/startDraftRuns.js` – submits saved drafts automatically (forces the status filter to "Saved draft" only first)
+- `manual_console_scripts/startDraftRunsFiltered.js` – same, but also asks for an optional search term and only runs drafts whose title contains it
 - `manual_console_scripts/startDraftRunsExperimental.js` – same but waits for confirmation before counting submissions
 - `manual_console_scripts/downloadPredictions.js` – asks how many to download, then downloads from the top, scrolling to reveal more rows when it can't see enough (pass `0` for all)
 - `jsongeneration/generate_screening_json_v1.py` – generates AlphaFold JSON files from your CSV
@@ -37,6 +38,9 @@ These scripts run directly in your browser console—no install needed.
 3. Call `startDraftRuns()` with optional count (prompts if you don't specify)
 4. Script clicks through **Open draft → Continue and preview job → Confirm and submit job** for each row
 5. Increase delays in `options` object if needed for slow connections
+
+#### `manual_console_scripts/startDraftRunsFiltered.js`
+Same as `startDraftRuns.js`, but after asking how many to run it asks for an optional search term. Only drafts whose title contains that term get run (leave blank to run any). Call `startDraftRunsFiltered(count, "searchTerm")` to skip the prompts.
 
 #### `manual_console_scripts/startDraftRunsExperimental.js`
 Same as above but waits for success/error messages before counting submissions. Stops if AlphaFold reports quota errors.
