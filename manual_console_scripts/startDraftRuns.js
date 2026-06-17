@@ -94,6 +94,13 @@ async function startDraftRuns(desiredRuns, options = {}) {
         await wait(200);
     };
 
+    // Read a chip's visible label only — chip.textContent also includes the icon
+    // ligature text (e.g. "edit_document"), so match on the label span instead.
+    const chipLabel = (chip) => {
+        const el = chip.querySelector('.mdc-evolution-chip__text-label, .mat-mdc-chip-action-label');
+        return normalize(el ? el.textContent : chip.textContent);
+    };
+
     // Force the status filter chips to show ONLY "Saved draft" so runs operate on
     // real drafts instead of paging through completed/example/etc. predictions.
     const ensureSavedDraftFilter = async () => {
@@ -105,7 +112,7 @@ async function startDraftRuns(desiredRuns, options = {}) {
             if (!action) continue;
             const selected = action.getAttribute('aria-selected') === 'true'
                 || chip.classList.contains('mdc-evolution-chip--selected');
-            const wantSelected = normalize(chip.textContent) === 'saved draft';
+            const wantSelected = chipLabel(chip) === 'saved draft';
             if (selected !== wantSelected) { action.click(); changed = true; await wait(300); }
         }
         if (changed) { console.log('Filtered to saved drafts only.'); await wait(config.pageDelayMs); }
