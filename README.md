@@ -6,6 +6,7 @@ Tools for automating AlphaFold3 webserver tasks: browser console scripts (`manua
 - `manual_console_scripts/startDraftRuns.js` – submits saved drafts automatically (forces the status filter to "Saved draft" only first)
 - `manual_console_scripts/startDraftRunsFiltered.js` – same, but also asks for an optional search term and only runs drafts whose title contains it
 - `manual_console_scripts/startDraftRunsExperimental.js` – same but waits for confirmation before counting submissions
+- `manual_console_scripts/deleteSavedDraftsBySearch.js` – deletes saved drafts whose title contains a required search term
 - `manual_console_scripts/downloadPredictions.js` – asks how many to download, then downloads from the top, scrolling to reveal more rows when it can't see enough (pass `0` for all)
 - `jsongeneration/generate_screening_json_v1.py` – generates AlphaFold JSON files from your CSV
 - `node_automation.js` – Puppeteer automation (experimental)
@@ -44,6 +45,9 @@ Same as `startDraftRuns.js`, but after asking how many to run it asks for an opt
 
 #### `manual_console_scripts/startDraftRunsExperimental.js`
 Same as above but waits for success/error messages before counting submissions. Stops if AlphaFold reports quota errors.
+
+#### `manual_console_scripts/deleteSavedDraftsBySearch.js`
+Paste the script, enter a title search term, and confirm. It forces the table to **Saved draft** only, then deletes matching draft rows. Call `deleteSavedDraftsBySearch("searchTerm")` to skip the prompt.
 
 #### `manual_console_scripts/downloadPredictions.js`
 1. Open the predictions table (no need to zoom out—it scrolls for you)
