@@ -1,69 +1,64 @@
 # AlphaFold3 Webserver Automation
 
-Tools for automating AlphaFold3 webserver tasks: browser console scripts (`manual_console_scripts/`) and a JSON generator (`jsongeneration/`) for building screens and running predictions. There's also `node_automation.js` for Puppeteer-based automation, but it's experimental—use the console scripts for reliable results.
+The AlphaFold3 server is fine until you have a hundred predictions to set up and submit by hand. These scripts do the clicking for you.
 
-## What's inside
-- `manual_console_scripts/startDraftRuns.js` – submits saved drafts automatically (forces the status filter to "Saved draft" only first)
-- `manual_console_scripts/startDraftRunsFiltered.js` – same, but also asks for an optional search term and only runs drafts whose title contains it
-- `manual_console_scripts/startDraftRunsExperimental.js` – same but waits for confirmation before counting submissions
-- `manual_console_scripts/deleteSavedDraftsBySearch.js` – deletes saved drafts whose title contains a required search term
-- `manual_console_scripts/downloadPredictions.js` – asks how many to download, then downloads from the top, scrolling to reveal more rows when it can't see enough (pass `0` for all)
-- `jsongeneration/generate_screening_json_v1.py` – generates AlphaFold JSON files from your CSV
-- `node_automation.js` – Puppeteer automation (experimental)
+There are two pieces: a Python script that turns a CSV into AlphaFold JSON files, and a few browser console scripts that drive the website itself (start drafts, download results, clean up). There's also a Puppeteer version, `node_automation.js`, but it's flaky and I mostly use the console scripts. Stick with those.
 
-## How to use
-1. Generate JSON files from your CSV
-2. Upload to AlphaFold
-3. Run console scripts to start predictions and download results
+## The workflow
 
-### 1. Generate JSON files
+1. Make JSON files from your CSV.
+2. Upload them to AlphaFold and save as drafts.
+3. Run the console scripts to submit the drafts, then later to download the results.
+
+## Generating JSON
 
 ```bash
 python jsongeneration/generate_screening_json_v1.py
 ```
 
-The script prompts you for:
-1. Screening chains (auto-named `Chain1`, `Chain2`, etc. if you skip labels)
-2. Your CSV path and column names for target IDs and sequences
-3. Output path (leave blank for stdout)
-4. Entries per file (default is 100, or use smaller numbers like 30 for easier uploads)
+It asks a few questions: which screening chains to include (skip the labels and they become Chain1, Chain2, and so on), the path to your CSV plus which columns hold the target IDs and sequences, where to write the output (blank just prints to the terminal), and how many entries to pack into each file. The default is 100 per file; if uploads keep choking, drop it to 30 or so.
 
-Each entry gets a unique seed and is named `<target>_<screeningChain>`.
+Every entry gets its own random seed and is named `<target>_<screeningChain>`.
 
-### 2. Run console scripts (recommended)
-These scripts run directly in your browser console—no install needed.
+## The console scripts
 
-#### `manual_console_scripts/startDraftRuns.js`
-1. Open AlphaFold and zoom out to see all drafts you want to submit
-2. Open DevTools → Console, paste the file, press Enter
-3. Call `startDraftRuns()` with optional count (prompts if you don't specify)
-4. Script clicks through **Open draft → Continue and preview job → Confirm and submit job** for each row
-5. Increase delays in `options` object if needed for slow connections
+These run straight in the browser, nothing to install. The routine is the same for all of them: open the AlphaFold tab, open DevTools and go to the Console, paste a script, hit Enter, then call its function.
 
-#### `manual_console_scripts/startDraftRunsFiltered.js`
-Same as `startDraftRuns.js`, but after asking how many to run it asks for an optional search term. Only drafts whose title contains that term get run (leave blank to run any). Call `startDraftRunsFiltered(count, "searchTerm")` to skip the prompts.
+### startDraftRuns.js
 
-#### `manual_console_scripts/startDraftRunsExperimental.js`
-Same as above but waits for success/error messages before counting submissions. Stops if AlphaFold reports quota errors.
+Submits your saved drafts one after another. It first flips the status filter to show only "Saved draft", then for each row it clicks through Open draft, Continue and preview job, and Confirm and submit job.
 
-#### `manual_console_scripts/deleteSavedDraftsBySearch.js`
-Paste the script, enter a title search term, and confirm. It forces the table to **Saved draft** only, then deletes matching draft rows. Call `deleteSavedDraftsBySearch("searchTerm")` to skip the prompt.
+Zoom out first so all the drafts you want are on screen, then call `startDraftRuns()`. It'll ask how many to submit if you don't pass a number. On a slow connection, bump up the delays in the options object.
 
-#### `manual_console_scripts/downloadPredictions.js`
-1. Open the predictions table (no need to zoom out—it scrolls for you)
-2. Open DevTools → Console, paste the script, press Enter
-3. A prompt asks how many to download from the top (pass `0` for all). Or call `downloadPredictions(count, { delayMs })` to skip the prompt and tune the per-row delay (default 500ms)
-4. Script clicks **Download** and—like the run scripts—scrolls to reveal more rows when it can't see enough, remembering what it grabbed so reruns pull the next batch
+### startDraftRunsFiltered.js
 
-### 3. Node.js automation (experimental)
-Puppeteer-based automation. Still in testing—expect bugs.
+Same idea, but it also asks for a search term and only submits drafts whose title contains it. Useful when your list is a mix and you only want to run part of it. Call `startDraftRunsFiltered(count, "searchTerm")` to skip both prompts; leave the term blank to run everything.
 
-Usage (Node.js v18+):
-1. `npm install puppeteer`
-2. `node node_automation.js --url "https://alphafold3.example.com/predictions" --delay 500`
-3. Log in if prompted. It asks how many to download (or pass `--count 25`; `--count 0` means all) and scrolls to reveal more rows. Use `--auto-start` to skip the prompt (defaults to all), `--headless` to hide the browser
+### startDraftRunsExperimental.js
 
-## Notes
-- `downloadPredictions.js` scrolls to reveal more rows on its own; the start-draft scripts still work best with rows already on screen
-- Increase delays (750-1000ms) if you have a slow connection
-- JSON generator defaults to 100 entries per file, adjust as needed
+Same again, except it waits for the success or error message before counting a submission, and it stops if AlphaFold starts complaining about quota. Slower, but less likely to overshoot.
+
+### deleteSavedDraftsBySearch.js
+
+Cleanup. Give it a title search term, confirm, and it deletes every saved draft that matches. It forces the table to Saved draft only first, so you won't touch anything you've already submitted. `deleteSavedDraftsBySearch("searchTerm")` skips the prompt. The search term is required here on purpose, so you don't wipe the whole list by accident.
+
+### downloadPredictions.js
+
+Downloads finished predictions from the top of the list. No need to zoom out; it scrolls the table itself as it goes and remembers what it already grabbed, so running it again picks up where it left off. It asks how many to download (0 means all), or call `downloadPredictions(count, { delayMs })` to set the count and the per-row delay (500ms by default).
+
+## The Puppeteer script (experimental)
+
+If you really want headless automation, `node_automation.js` is there. It's still rough.
+
+```bash
+npm install puppeteer
+node node_automation.js --url "https://alphafold3.example.com/predictions" --delay 500
+```
+
+Log in when the browser pops up. It asks how many predictions to download, or pass `--count 25` (`--count 0` for all). `--auto-start` skips the prompt and grabs everything, `--headless` hides the window. Needs Node 18 or newer.
+
+## A few things worth knowing
+
+- The download script scrolls on its own. The start-draft scripts don't, so get your draft rows on screen before running them.
+- Slow connection? Push the delays up to 750-1000ms.
+- The JSON generator defaults to 100 entries per file. Smaller files upload more reliably.
