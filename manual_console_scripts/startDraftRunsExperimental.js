@@ -23,7 +23,7 @@ async function startDraftRunsExperimental(desiredRuns, options = {}) {
 
     let runLimit = Number(desiredRuns);
     if (!Number.isFinite(runLimit) || runLimit <= 0) {
-        const response = prompt('How many drafts should be started successfully?', '1');
+        const response = prompt('How many drafts should be started successfully?', '30');
         runLimit = Number(response);
     }
     if (!Number.isFinite(runLimit) || runLimit <= 0) {
